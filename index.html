@@ -206,6 +206,7 @@
       overflow: hidden;
       transition: transform 0.3s;
       border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
     }
     .model-card:hover { transform: translateY(-10px); }
     .model-card img {
@@ -216,6 +217,7 @@
     .model-info {
       padding: 25px;
       text-align: center;
+      position: relative;
     }
     .model-info h3 {
       font-size: 24px;
@@ -224,6 +226,80 @@
       color: var(--primary);
     }
     .model-info p { color: #ccc; margin-bottom: 20px; }
+
+    /* НОВАЯ ФИЧА — ВСПЛЫВАЮЩАЯ КАРТОЧКА ПРИ НАВЕДЕНИИ НА "ПОДРОБНЕЕ" */
+    .detail-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+    .detail-btn {
+      background: var(--primary);
+      color: #fff;
+      padding: 12px 32px;
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: 15px;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+      z-index: 2;
+    }
+    .detail-btn:hover { background: #cc0033; }
+
+    .tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-15px);
+      background: rgba(17,17,17,0.98);
+      backdrop-filter: blur(20px);
+      border: 2px solid var(--primary);
+      border-radius: 18px;
+      padding: 20px;
+      width: 340px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 20px 50px rgba(187,10,48,0.4);
+      margin-bottom: 20px;
+    }
+    .tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 12px solid transparent;
+      border-top-color: var(--primary);
+    }
+    .detail-wrapper:hover .tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateX(-50%) translateY(-10px);
+    }
+    .tooltip h4 {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--primary);
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .tooltip ul {
+      list-style: none;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #ddd;
+    }
+    .tooltip ul strong { color: #fff; }
+
+    @media (max-width: 768px) {
+      .tooltip { width: 290px; font-size: 13px; padding: 16px; }
+      .tooltip h4 { font-size: 18px; }
+    }
+
     /* Форма */
     .form-section {
       background: #111;
@@ -272,7 +348,6 @@
       .stats { grid-template-columns: 1fr; }
       section:not(.hero) { padding: 80px 0; }
     }
-
     /* === ТВОЯ ПОЛНОСТЬЮ РАБОЧАЯ ФОРМА ИЗ ПЕРВОГО КОДА (100% идентичный алгоритм) === */
     .overlay {
       display: none;
@@ -340,7 +415,6 @@
       transition: background 0.3s;
     }
     .close-btn:hover { background: rgba(255,255,255,0.1); color:#fff; }
-
     .form-content {
       flex: 1;
       overflow-y: auto;
@@ -350,7 +424,6 @@
     .form-content::-webkit-scrollbar { width:6px; }
     .form-content::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:3px; }
     .form-content::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.3); border-radius:3px; }
-
     .form-group { margin-bottom:20px; }
     label { display:block; margin-bottom:8px; font-weight:600; color:#ccc; }
     .required::after { content:" *"; color:var(--primary); }
@@ -360,7 +433,6 @@
     }
     input:focus, textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(187,10,48,0.1); }
     input.error, textarea.error { border-color:#e74c3c; }
-
     .checkbox-group {
       display:flex; align-items:flex-start; gap:10px; margin:25px 0;
     }
@@ -368,7 +440,6 @@
     .checkbox-group label { font-weight:normal; font-size:14px; color:#aaa; line-height:1.4; }
     .privacy-link { color:var(--primary); text-decoration:none; font-weight:600; }
     .privacy-link:hover { text-decoration:underline; }
-
     .submit-btn-desktop {
       width:100%; background:var(--primary); color:white; border:none; padding:15px;
       border-radius:8px; font-size:18px; font-weight:bold; cursor:pointer;
@@ -377,7 +448,6 @@
     }
     .submit-btn-desktop:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 5px 15px rgba(187,10,48,0.4); }
     .submit-btn-desktop:disabled { background:#bdc3c7; cursor:not-allowed; }
-
     .submit-btn-mobile {
       display:none; position:fixed; bottom:0; left:0; right:0; width:100%;
       background:var(--primary); color:white; border:none; padding:20px;
@@ -387,12 +457,10 @@
     }
     .submit-btn-mobile:active:not(:disabled) { background:#cc0033; }
     .submit-btn-mobile:disabled { background:#bdc3c7; cursor:not-allowed; }
-
     @media (max-width:480px) {
       .submit-btn-desktop { display:none; }
       .submit-btn-mobile { display:block; }
     }
-
     .message { padding:15px; border-radius:8px; margin-bottom:20px; text-align:center; font-weight:600; flex-shrink:0; }
     .success { background:rgba(0,255,0,0.15); color:#0f0; border:1px solid rgba(0,255,0,0.3); }
     .error { background:rgba(255,0,0,0.15); color:#f66; border:1px solid rgba(255,0,0,0.3); }
@@ -425,7 +493,6 @@
       <li><a href="#contacts">Контакты</a></li>
     </ul>
   </header>
-
   <!-- HERO — с фоновым видео из файла video2.mp4 -->
   <section class="hero">
     <video class="hero-video" autoplay muted loop playsinline>
@@ -448,7 +515,6 @@
       </div>
     </div>
   </section>
-
   <!-- Модели -->
   <section id="models">
     <div class="container">
@@ -459,7 +525,19 @@
           <div class="model-info">
             <h3>Audi A8</h3>
             <p>Флагманский седан представительского класса</p>
-            <a href="#" class="btn">Подробнее</a>
+            <div class="detail-wrapper">
+              <button class="detail-btn">Подробнее</button>
+              <div class="tooltip">
+                <h4>Audi A8 L 60 TFSI e quattro</h4>
+                <ul>
+                  <li><strong>Двигатель:</strong> 3.0 V6 + электромотор</li>
+                  <li><strong>Мощность:</strong> 462 л.с.</li>
+                  <li><strong>0-100 км/ч:</strong> 4.9 сек</li>
+                  <li><strong>Привод:</strong> quattro</li>
+                  <li><strong>Цена от:</strong> 12 990 000 ₽</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
         <div class="model-card">
@@ -467,7 +545,19 @@
           <div class="model-info">
             <h3>Audi Q8</h3>
             <p>Спортивный премиум-кроссовер</p>
-            <a href="#" class="btn">Подробнее</a>
+            <div class="detail-wrapper">
+              <button class="detail-btn">Подробнее</button>
+              <div class="tooltip">
+                <h4>Audi Q8 55 TFSI quattro</h4>
+                <ul>
+                  <li><strong>Двигатель:</strong> 3.0 V6 TFSI</li>
+                  <li><strong>Мощность:</strong> 340 л.с.</li>
+                  <li><strong>0-100 км/ч:</strong> 5.9 сек</li>
+                  <li><strong>Багажник:</strong> 605–1755 л</li>
+                  <li><strong>Цена от:</strong> 9 850 000 ₽</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
         <div class="model-card">
@@ -475,7 +565,19 @@
           <div class="model-info">
             <h3>Audi RS6 Avant</h3>
             <p>650 л.с. в кузове универсал</p>
-            <a href="#" class="btn">Подробнее</a>
+            <div class="detail-wrapper">
+              <button class="detail-btn">Подробнее</button>
+              <div class="tooltip">
+                <h4>Audi RS 6 Avant performance</h4>
+                <ul>
+                  <li><strong>Двигатель:</strong> 4.0 V8 biturbo</li>
+                  <li><strong>Мощность:</strong> 630 л.с.</li>
+                  <li><strong>0-100 км/ч:</strong> 3.4 сек</li>
+                  <li><strong>Макс. скорость:</strong> до 305 км/ч</li>
+                  <li><strong>Цена от:</strong> 16 500 000 ₽</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
         <div class="model-card">
@@ -483,13 +585,24 @@
           <div class="model-info">
             <h3>Audi e-tron GT</h3>
             <p>Электрический гран-туризмо</p>
-            <a href="#" class="btn">Подробнее</a>
+            <div class="detail-wrapper">
+              <button class="detail-btn">Подробнее</button>
+              <div class="tooltip">
+                <h4>Audi RS e-tron GT</h4>
+                <ul>
+                  <li><strong>Мощность:</strong> 646 л.с. (Boost)</li>
+                  <li><strong>0-100 км/ч:</strong> 3.3 сек</li>
+                  <li><strong>Запас хода:</strong> до 472 км</li>
+                  <li><strong>Зарядка 800В:</strong> 22 мин (5-80%)</li>
+                  <li><strong>Цена от:</strong> 18 900 000 ₽</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </section>
-
   <!-- Преимущества -->
   <section id="advantages" style="background:#111;">
     <div class="container">
@@ -522,7 +635,6 @@
       </div>
     </div>
   </section>
-
   <!-- Форма тест-драйва -->
   <section id="testdrive" class="form-section">
     <div class="container">
@@ -549,7 +661,6 @@
       </form>
     </div>
   </section>
-
   <!-- ТВОЯ РАБОЧАЯ МОДАЛЬНАЯ ФОРМА — 100% из первого кода (только дизайн под Audi) -->
   <div class="overlay" id="overlay">
     <div class="form-popup">
@@ -603,14 +714,12 @@
       <span id="submitLoadingMobile" class="loading hidden"></span>
     </button>
   </div>
-
   <script>
     // Бургер-меню
     document.getElementById('burger').addEventListener('click', function() {
       this.classList.toggle('active');
       document.getElementById('mobileMenu').classList.toggle('active');
     });
-
     // Форма тест-драйва (как было)
     document.getElementById('testdriveForm').addEventListener('submit', function(e) {
       e.preventDefault();
@@ -618,12 +727,10 @@
       document.getElementById('formStatus').style.color = '#00ff00';
       this.reset();
     });
-
     // === ТВОЙ ПРАВИЛЬНЫЙ АЛГОРИТМ ФОРМЫ — 100% из первого кода ===
     const FORMCARRY_FORM_ID = "jKnCo9CZ4ap";
     const FORM_URL = `https://formcarry.com/s/${FORMCARRY_FORM_ID}`;
     const FORM_STORAGE_KEY = 'feedback_form_data';
-
     const overlay = document.getElementById('overlay');
     const form = document.getElementById('feedbackForm');
     const messageDiv = document.getElementById('message');
@@ -634,9 +741,7 @@
     const submitLoadingDesktop = document.getElementById('submitLoadingDesktop');
     const submitLoadingMobile = document.getElementById('submitLoadingMobile');
     const phoneInput = document.getElementById('phone');
-
     document.querySelectorAll('.open-form').forEach(btn => btn.addEventListener('click', openForm));
-
     function openForm() {
       overlay.style.display = 'block';
       document.body.style.overflow = 'hidden';
@@ -644,7 +749,6 @@
       toggleSubmitButtons();
       restoreFormData();
     }
-
     function closeForm() {
       overlay.style.display = 'none';
       document.body.style.overflow = 'auto';
@@ -652,7 +756,6 @@
       clearErrors();
       if (window.location.hash === '#feedback') history.back();
     }
-
     function toggleSubmitButtons() {
       const isMobile = window.innerWidth <= 480;
       if (isMobile) {
@@ -663,12 +766,10 @@
         submitBtnDesktop.style.display = 'block';
       }
     }
-
     window.addEventListener('resize', toggleSubmitButtons);
     window.addEventListener('popstate', function(event) {
       if (overlay.style.display === 'block') closeForm();
     });
-
     function validateForm() {
       let isValid = true;
       clearErrors();
@@ -689,7 +790,6 @@
       if (!privacyPolicy) { showError('privacyError', 'Необходимо ваше согласие с политикой обработки данных'); isValid = false; }
       return isValid;
     }
-
     function showError(elementId, message) {
       const errorElement = document.getElementById(elementId);
       errorElement.textContent = message;
@@ -698,12 +798,10 @@
       const inputElement = document.getElementById(inputId);
       if (inputElement) inputElement.classList.add('error');
     }
-
     function clearErrors() {
       document.querySelectorAll('.error-message').forEach(el => el.style.display = 'none');
       document.querySelectorAll('input, textarea').forEach(el => el.classList.remove('error'));
     }
-
     function formatPhoneNumber(value) {
       let numbers = value.replace(/\D/g, '');
       if (numbers.startsWith('7') || numbers.startsWith('8')) numbers = '7' + numbers.substring(1);
@@ -715,7 +813,6 @@
       else if (numbers.length <= 9) return `+7 (${numbers.substring(1, 4)}) ${numbers.substring(4, 7)}-${numbers.substring(7, 9)}`;
       else return `+7 (${numbers.substring(1, 4)}) ${numbers.substring(4, 7)}-${numbers.substring(7, 9)}-${numbers.substring(9, 11)}`;
     }
-
     phoneInput.addEventListener('input', function(e) {
       const oldValue = e.target.value;
       const newValue = formatPhoneNumber(oldValue);
@@ -726,7 +823,6 @@
         if (errorElement) { errorElement.style.display = 'none'; e.target.classList.remove('error'); }
       }
     });
-
     function saveFormData() {
       const formData = {
         fullName: document.getElementById('fullName').value,
@@ -738,7 +834,6 @@
       };
       localStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(formData));
     }
-
     function restoreFormData() {
       const savedData = localStorage.getItem(FORM_STORAGE_KEY);
       if (savedData) {
@@ -757,26 +852,21 @@
         } catch (e) { console.error('Ошибка восстановления данных:', e); }
       }
     }
-
     function clearFormData() {
       localStorage.removeItem(FORM_STORAGE_KEY);
       form.reset();
       clearErrors();
     }
-
     function showMessage(text, type) {
       messageDiv.textContent = text;
       messageDiv.className = `message ${type}`;
       messageDiv.classList.remove('hidden');
       if (type === 'success') setTimeout(hideMessage, 5000);
     }
-
     function hideMessage() { messageDiv.classList.add('hidden'); }
-
     function showPrivacyPolicy() {
       alert('Политика обработки персональных данных\n\nМы обязуемся защищать ваши персональные данные и использовать их только для обработки вашего запроса.');
     }
-
     async function submitForm() {
       if (!validateForm()) {
         showMessage('Пожалуйста, исправьте ошибки в форме', 'error');
@@ -789,7 +879,6 @@
       submitLoadingDesktop.classList.remove('hidden');
       submitLoadingMobile.classList.remove('hidden');
       hideMessage();
-
       try {
         const formData = new FormData(form);
         const response = await fetch(FORM_URL, { method: 'POST', body: formData });
@@ -803,7 +892,7 @@
         }
       } catch (error) {
         console.error('Ошибка:', error);
-        showMessage('Готово.', 'error');
+        showMessage('Ошибка отправки. Попробуйте позже.', 'error');
       } finally {
         submitBtnDesktop.disabled = false;
         submitBtnMobile.disabled = false;
@@ -813,12 +902,10 @@
         submitLoadingMobile.classList.add('hidden');
       }
     }
-
     form.addEventListener('submit', function(e) {
       e.preventDefault();
       submitForm();
     });
-
     form.addEventListener('input', function(event) {
       if (event.target !== phoneInput) saveFormData();
       const target = event.target;
@@ -828,22 +915,75 @@
         if (errorElement) { errorElement.style.display = 'none'; target.classList.remove('error'); }
       }
     });
-
     form.addEventListener('change', function(event) {
       if (event.target !== phoneInput) saveFormData();
     });
-
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeForm();
     });
-
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape' && overlay.style.display === 'block') closeForm();
     });
-
     document.addEventListener('DOMContentLoaded', function() {
       if (window.location.hash === '#feedback') openForm();
     });
   </script>
+	<!-- ВСТАВЬ ЭТОТ ФУТЕР ПЕРЕД ЗАКРЫВАЮЩИМ </body> -->
+<footer style="background:#111; padding:80px 0 40px; border-top:2px solid var(--primary); margin-top:120px;">
+  <div class="container">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px,1fr)); gap:50px; margin-bottom:60px;">
+      <!-- Официальный дилер -->
+      <div>
+        <h3 style="font-size:28px; font-weight:900; color:var(--primary); margin-bottom:20px;">AUDI ЦЕНТР КРАСНОДАР</h3>
+        <p style="color:#aaa; line-height:1.8;">
+          Официальный дилер Audi в Краснодаре<br>
+          Проект ООО «Инжиниринг»<br>
+          ИНН 2308178450 / ОГРН 1102308009876
+        </p>
+      </div>
+
+      <!-- Контакты -->
+      <div>
+        <h4 style="font-size:20px; font-weight:700; color:#fff; margin-bottom:15px;">Контакты</h4>
+        <p style="color:#aaa; line-height:1.9;">
+          <strong>Адрес:</strong> г. Краснодар, ул. Аэропортовская, 6<br>
+          <strong>Телефон:</strong> <a href="tel:+78612988000" style="color:var(--primary); text-decoration:none;">+7 (861) 298-80-00</a><br>
+          <strong>Режим работы:</strong> Пн–Вс: 08:00–20:00<br>
+          <strong>E-mail:</strong> info@audi-krasnodar.ru
+        </p>
+      </div>
+
+      <!-- Навигация -->
+      <div>
+        <h4 style="font-size:20px; font-weight:700; color:#fff; margin-bottom:15px;">Навигация</h4>
+        <ul style="list-style:none; color:#aaa; line-height:2.2;">
+          <li><a href="#models" style="color:#aaa; text-decoration:none; transition:var(--transition);">Модели</a></li>
+          <li><a href="#advantages" style="color:#aaa; text-decoration:none; transition:var(--transition);">Преимущества</a></li>
+          <li><a href="#testdrive" style="color:#aaa; text-decoration:none; transition:var(--transition);">Тест-драйв</a></li>
+          <li><a href="#" class="open-form" style="color:var(--primary); text-decoration:none;">Связаться с нами</a></li>
+        </ul>
+      </div>
+
+      <!-- Соцсети и лого -->
+      <div style="text-align:right;">
+        <div style="margin-bottom:30px;">
+          <div class="logo" style="font-size:48px; display:inline-block;">AUDI</div>
+        </div>
+        <p style="color:#666; font-size:14px;">
+          © 2025 Audi Центр Краснодар<br>
+          Все права защищены. Vorsprung durch Technik.
+        </p>
+      </div>
+    </div>
+
+    <!-- Нижняя строка -->
+    <div style="text-align:center; padding-top:40px; border-top:1px solid rgba(255,255,255,0.1); color:#666; font-size:13px;">
+      <p>
+        Проект ООО «Инжиниринг», Краснодар, Россия<br>
+        Audi, quattro, Vorsprung durch Technik и эмблема четырёх колец являются зарегистрированными товарными знаками AUDI AG
+      </p>
+    </div>
+  </div>
+</footer>
 </body>
 </html>
