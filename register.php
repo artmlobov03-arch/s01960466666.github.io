@@ -58,12 +58,12 @@ function val(?array $user, string $key): string { return e((string)($user[$key] 
         .alert--err { background: #fef1f0; color: var(--danger); border-color: var(--danger); }
         .hidden { display: none !important; }
 
-        .creds { background: #f9f9fb; border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .creds h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--success); }
-        .cred-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-        .cred-row:last-of-type { border-bottom: none; }
-        .cred-row span { font-size: 13px; color: var(--muted); }
-        .cred-row strong { font-size: 16px; font-family: monospace; letter-spacing: .05em; }
+        .creds { background: #0d1f2d; border: 1.5px solid #1e6fa8; border-radius: 12px; padding: 24px 28px; margin-bottom: 28px; }
+        .creds h3 { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #4fc3f7; }
+        .cred-row { display: flex; align-items: center; gap: 14px; padding: 8px 0; }
+        .cred-row span { font-size: 13px; color: #90b8d0; min-width: 64px; }
+        .cred-row strong { font-size: 17px; font-family: monospace; letter-spacing: .06em; color: #7de8c8; }
+        .creds p { margin-top: 14px; font-size: 13px; color: #6fa8c0; line-height: 1.6; }
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .form-grid .full { grid-column: 1 / -1; }
@@ -138,13 +138,13 @@ function val(?array $user, string $key): string { return e((string)($user[$key] 
         <p>Заполните форму — после отправки вы получите логин и пароль для редактирования данных.</p>
     </div>
 
+    <div id="credsBox" class="creds hidden"></div>
+    <div id="alertBox" class="alert hidden" style="margin-bottom:20px"></div>
+
     <div class="layout">
 
         <!-- ФОРМА -->
         <div>
-            <div id="alertBox" class="alert hidden"></div>
-            <div id="credsBox" class="creds hidden"></div>
-
             <div class="card">
                 <form id="mainForm" novalidate>
 
@@ -325,6 +325,17 @@ function val(?array $user, string $key): string { return e((string)($user[$key] 
         return d.innerHTML;
     }
 
+    function showFormNote(text) {
+        let note = qs('#formNote');
+        if (!note) {
+            note = document.createElement('p');
+            note.id = 'formNote';
+            note.style.cssText = 'margin-top:12px;font-size:13px;font-weight:600;color:var(--success)';
+            qs('.form-foot')?.appendChild(note);
+        }
+        note.textContent = text;
+    }
+
     // ── Основная форма ─────────────────────────────────────
     qs('#mainForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -360,16 +371,16 @@ function val(?array $user, string $key): string { return e((string)($user[$key] 
                 if (!isAuth) {
                     const box = qs('#credsBox');
                     box.innerHTML = `
-                        <h3>✓ Заявка принята! Сохраните данные для входа:</h3>
-                        <div class="cred-row"><span>Логин</span><strong>${escHtml(data.login)}</strong></div>
-                        <div class="cred-row"><span>Пароль</span><strong>${escHtml(data.password)}</strong></div>
-                        <p style="margin-top:12px;font-size:13px;color:var(--muted)">
-                            Используйте их для входа в правой карточке, чтобы редактировать анкету.
-                        </p>
+                        <h3>Сохраните данные для входа:</h3>
+                        <div class="cred-row"><span>Логин:</span><strong>${escHtml(data.login)}</strong></div>
+                        <div class="cred-row"><span>Пароль:</span><strong>${escHtml(data.password)}</strong></div>
+                        <p>Используйте их для входа в правой карточке, чтобы редактировать анкету.</p>
                     `;
                     box.classList.remove('hidden');
+                    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     qs('#mainForm').reset();
                     qs('#alertBox').classList.add('hidden');
+                    showFormNote('Данные сохранены. Запишите логин и пароль!');
                 } else {
                     showAlert('✓ Данные успешно обновлены.', false);
                 }
