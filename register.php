@@ -4,336 +4,429 @@ declare(strict_types=1);
 session_start();
 require_once __DIR__ . '/functions.php';
 
-// Уже авторизован — в профиль
-if (!empty($_SESSION['user_id'])) {
-    header('Location: profile.php');
-    exit;
-}
-
-$values = [
-    'full_name' => '', 'phone' => '', 'email' => '', 'birth_date' => '',
-    'gender' => '', 'languages' => [], 'biography' => '', 'contract_accepted' => false,
-];
-$errors       = [];
-$successData  = null; // ['login', 'password', 'profile_url']
-
-// Fallback: обычный POST без JS
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-    $values = [
-        'full_name'         => trim($_POST['full_name'] ?? ''),
-        'phone'             => trim($_POST['phone'] ?? ''),
-        'email'             => trim($_POST['email'] ?? ''),
-        'birth_date'        => trim($_POST['birth_date'] ?? ''),
-        'gender'            => trim($_POST['gender'] ?? ''),
-        'languages'         => array_values(array_unique(array_map('strval', $_POST['languages'] ?? []))),
-        'biography'         => trim($_POST['biography'] ?? ''),
-        'contract_accepted' => isset($_POST['contract_accepted']),
-    ];
-
-    $errors = validateUserData($values);
-
-    if (empty($errors)) {
-        try {
-            $pdo    = getPdo();
-            $result = createUser($pdo, $values);
-
-            $base = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http')
-                . '://' . $_SERVER['HTTP_HOST']
-                . dirname($_SERVER['REQUEST_URI']);
-
-            $successData = [
-                'login'       => $result['login'],
-                'password'    => $result['password'],
-                'profile_url' => profileUrl($base),
-            ];
-        } catch (Throwable $e) {
-            $errors['_db'] = 'Ошибка сохранения: ' . $e->getMessage();
-        }
-    }
-}
+$isAuth = !empty($_SESSION['user_id']);
+$user   = $isAuth ? getUserById(getPdo(), (int)$_SESSION['user_id']) : null;
 
 function e(string $v): string { return htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
+function val(?array $user, string $key): string { return e((string)($user[$key] ?? '')); }
 ?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Регистрация — Audi</title>
+    <title>Анкета — Audi</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        :root { --primary:#BB0A30; --dark:#0a0a0a; --card:#161616; --border:#2a2a2a; --text:#f0f0f0; --muted:#888; --input:#1e1e1e; }
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        body{font-family:'Montserrat',sans-serif;background:var(--dark);color:var(--text);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 16px}
-        a{color:var(--primary);text-decoration:none}
-        a:hover{text-decoration:underline}
+        :root {
+            --primary: #BB0A30;
+            --primary-h: #99091f;
+            --bg: #f4f4f6;
+            --surface: #ffffff;
+            --border: #e2e2e8;
+            --text: #111;
+            --muted: #6b6b80;
+            --danger: #d93025;
+            --success: #1a7f4b;
+            --radius: 12px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Montserrat', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        a { color: var(--primary); text-decoration: none; }
+        a:hover { text-decoration: underline; }
 
-        .back{align-self:flex-start;margin-bottom:24px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px}
-        .card{width:100%;max-width:640px;background:var(--card);border:1px solid var(--border);border-radius:20px;overflow:hidden}
-        .card__head{background:linear-gradient(135deg,#1a0008,#0a0a0a);padding:32px 36px;border-bottom:3px solid var(--primary)}
-        .card__head h1{font-size:24px;font-weight:900;margin-bottom:6px}
-        .card__head p{font-size:13px;color:var(--muted)}
-        .card__body{padding:32px 36px}
+        .topnav { background: #000; border-bottom: 2px solid var(--primary); height: 60px; display: flex; align-items: center; }
+        .topnav__inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; width: 100%; display: flex; justify-content: space-between; align-items: center; }
+        .brand { display: flex; align-items: center; gap: 10px; color: #fff; font-weight: 900; font-size: 20px; text-decoration: none; letter-spacing: 3px; }
+        .brand span { color: var(--primary); }
+        .topnav__menu { display: flex; gap: 28px; list-style: none; }
+        .topnav__menu a { color: rgba(255,255,255,.7); font-size: 14px; font-weight: 600; text-decoration: none; transition: color .2s; }
+        .topnav__menu a:hover, .topnav__menu a.active { color: #fff; }
 
-        .alert{padding:14px 18px;border-radius:10px;font-size:14px;font-weight:600;margin-bottom:24px;border-left:4px solid}
-        .alert--success{background:rgba(0,200,80,.1);color:#0c8;border-color:#0c8}
-        .alert--error{background:rgba(187,10,48,.1);color:#f55;border-color:var(--primary)}
+        .page { max-width: 1100px; margin: 0 auto; padding: 48px 24px 80px; }
+        .page__head { margin-bottom: 36px; }
+        .page__head h1 { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+        .page__head p { font-size: 15px; color: var(--muted); }
 
-        .success-box{background:rgba(0,200,80,.07);border:1px solid rgba(0,200,80,.3);border-radius:14px;padding:28px;text-align:center}
-        .success-box h2{color:#0c8;font-size:20px;margin-bottom:16px}
-        .cred{background:var(--input);border-radius:10px;padding:16px 20px;margin:12px 0;display:flex;justify-content:space-between;align-items:center;font-size:15px}
-        .cred span{color:var(--muted);font-size:13px}
-        .cred strong{font-size:18px;letter-spacing:.05em;color:#fff}
-        .btn{display:inline-block;background:var(--primary);color:#fff;padding:13px 28px;border-radius:10px;font-weight:700;font-size:15px;margin-top:20px;border:none;cursor:pointer;transition:background .2s}
-        .btn:hover{background:#cc0033}
+        .layout { display: grid; grid-template-columns: 1fr 320px; gap: 28px; align-items: start; }
 
-        .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-        .full{grid-column:1/-1}
-        .field{display:flex;flex-direction:column;gap:6px}
-        label{font-size:13px;font-weight:600;color:var(--text)}
-        input[type=text],input[type=tel],input[type=email],input[type=date],textarea,select{
-            width:100%;background:var(--input);border:1.5px solid var(--border);border-radius:10px;
-            padding:11px 14px;font:inherit;font-size:14px;color:var(--text);transition:border-color .2s}
-        input:focus,textarea:focus,select:focus{outline:none;border-color:var(--primary)}
-        input::placeholder,textarea::placeholder{color:#555}
-        select[multiple]{min-height:150px;padding:8px}
-        select[multiple] option{padding:6px 8px;border-radius:6px;margin-bottom:2px}
-        textarea{resize:vertical;min-height:100px;line-height:1.6}
-        .is-invalid{border-color:var(--primary)!important}
-        .err{font-size:12px;color:#f55;margin-top:2px}
-        .hint{font-size:12px;color:var(--muted)}
+        .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; }
 
-        .check-wrap{display:flex;align-items:flex-start;gap:12px;background:var(--input);border:1.5px solid var(--border);border-radius:10px;padding:14px 16px;cursor:pointer;font-size:13px;color:var(--text);line-height:1.5}
-        .check-wrap input{width:16px;height:16px;margin-top:2px;accent-color:var(--primary);flex-shrink:0;cursor:pointer}
+        .alert { padding: 13px 18px; border-radius: 10px; font-size: 14px; font-weight: 600; margin-bottom: 20px; border-left: 4px solid; }
+        .alert--ok  { background: #edfaf3; color: var(--success); border-color: var(--success); }
+        .alert--err { background: #fef1f0; color: var(--danger); border-color: var(--danger); }
+        .hidden { display: none !important; }
 
-        .submit-wrap{margin-top:24px}
-        .submit-btn{width:100%;background:var(--primary);color:#fff;border:none;border-radius:12px;padding:14px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s,transform .15s;box-shadow:0 4px 16px rgba(187,10,48,.3)}
-        .submit-btn:hover{background:#cc0033;transform:translateY(-1px)}
-        .submit-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+        .creds { background: #f9f9fb; border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .creds h3 { font-size: 15px; font-weight: 700; margin-bottom: 14px; color: var(--success); }
+        .cred-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .cred-row:last-of-type { border-bottom: none; }
+        .cred-row span { font-size: 13px; color: var(--muted); }
+        .cred-row strong { font-size: 16px; font-family: monospace; letter-spacing: .05em; }
 
-        .nav-foot{margin-top:24px;font-size:14px;color:var(--muted)}
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field__label { font-size: 13px; font-weight: 600; }
+        .field__label .req { color: var(--primary); }
+        .field__input {
+            width: 100%; background: #f9f9fb; border: 1.5px solid var(--border); border-radius: 8px;
+            padding: 10px 13px; font: inherit; font-size: 14px; color: var(--text);
+            transition: border-color .2s, box-shadow .2s;
+        }
+        .field__input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(187,10,48,.1); background: #fff; }
+        .field__input[readonly] { opacity: .5; cursor: not-allowed; }
+        .field__input::placeholder { color: #b0b0b8; }
+        .field__error { font-size: 12px; color: var(--danger); min-height: 16px; }
+        textarea.field__input { resize: vertical; min-height: 100px; line-height: 1.6; }
+        select.field__input[multiple] { min-height: 140px; padding: 6px; }
+        select.field__input[multiple] option { padding: 5px 8px; border-radius: 4px; }
+        .is-invalid { border-color: var(--danger) !important; background: #fef1f0 !important; }
+        .hint { font-size: 12px; color: var(--muted); }
 
-        @media(max-width:560px){.grid{grid-template-columns:1fr}.full{grid-column:1}.card__head,.card__body{padding:24px 20px}}
+        .radio-row { display: flex; gap: 20px; margin-top: 2px; }
+        .radio-opt { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+        .radio-opt input { accent-color: var(--primary); width: 16px; height: 16px; }
+
+        .check-label { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; cursor: pointer; line-height: 1.5; }
+        .check-label input { accent-color: var(--primary); width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; }
+
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 28px; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .2s, transform .15s; border: none; }
+        .btn--primary { background: var(--primary); color: #fff; box-shadow: 0 4px 14px rgba(187,10,48,.25); }
+        .btn--primary:hover { background: var(--primary-h); transform: translateY(-1px); }
+        .btn--primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+        .btn--ghost { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+        .btn--ghost:hover { background: rgba(187,10,48,.06); }
+        .btn--full { width: 100%; }
+        .form-foot { display: flex; align-items: center; gap: 16px; margin-top: 24px; flex-wrap: wrap; }
+        .form-note { font-size: 12px; color: var(--muted); }
+
+        .infoCard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+        .infoCard__title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+        .infoCard__text { font-size: 13px; color: var(--muted); margin-bottom: 18px; line-height: 1.6; }
+        .infoCard .field { margin-bottom: 12px; }
+        .login-name { font-size: 16px; font-weight: 700; color: var(--primary); margin: 8px 0 4px; }
+        .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+
+        footer { border-top: 1px solid var(--border); padding: 24px; margin-top: 40px; }
+        .footer__inner { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+
+        @media (max-width: 820px) {
+            .layout { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-grid .full { grid-column: 1; }
+            .page { padding: 28px 16px 60px; }
+        }
     </style>
 </head>
 <body>
 
-<a class="back" href="index.php">← Вернуться на сайт</a>
-
-<div class="card">
-    <div class="card__head">
-        <h1>Анкета разработчика</h1>
-        <p>Заполните форму для регистрации в системе Audi</p>
+<nav class="topnav">
+    <div class="topnav__inner">
+        <a class="brand" href="index.html"><span>AUDI</span></a>
+        <ul class="topnav__menu">
+            <li><a href="index.html">Главная</a></li>
+            <li><a href="register.php" class="active">Анкета</a></li>
+        </ul>
     </div>
-    <div class="card__body">
+</nav>
 
-        <?php if ($successData): ?>
-            <div class="success-box">
-                <h2>✓ Регистрация прошла успешно!</h2>
-                <p style="color:var(--muted);font-size:13px;margin-bottom:8px">Сохраните данные для входа:</p>
-                <div class="cred"><span>Логин</span><strong><?= e($successData['login']) ?></strong></div>
-                <div class="cred"><span>Пароль</span><strong><?= e($successData['password']) ?></strong></div>
-                <a class="btn" href="<?= e($successData['profile_url']) ?>">Перейти в профиль →</a>
-            </div>
+<div class="page">
+    <div class="page__head">
+        <h1>Оставить заявку</h1>
+        <p>Заполните форму — после отправки вы получите логин и пароль для редактирования данных.</p>
+    </div>
 
-        <?php else: ?>
+    <div class="layout">
 
-            <?php if (!empty($errors['_db'])): ?>
-                <div class="alert alert--error"><?= e($errors['_db']) ?></div>
-            <?php endif; ?>
+        <!-- ФОРМА -->
+        <div>
+            <div id="alertBox" class="alert hidden"></div>
+            <div id="credsBox" class="creds hidden"></div>
 
-            <div id="js-message" style="display:none" class="alert"></div>
-            <div id="js-success" style="display:none" class="success-box"></div>
+            <div class="card">
+                <form id="mainForm" novalidate>
 
-            <form id="regForm" action="register.php" method="post" novalidate>
-                <div class="grid">
-
-                    <div class="field full">
-                        <label for="full_name">ФИО</label>
-                        <input id="full_name" name="full_name" type="text" maxlength="150"
-                               value="<?= e($values['full_name']) ?>"
-                               class="<?= isset($errors['full_name']) ? 'is-invalid' : '' ?>"
-                               placeholder="Например, Петров Алексей Сергеевич">
-                        <?php if (isset($errors['full_name'])): ?><div class="err"><?= e($errors['full_name']) ?></div><?php endif; ?>
+                    <?php if ($isAuth && $user): ?>
+                    <div class="field full" style="margin-bottom:20px">
+                        <label class="field__label">Логин (нельзя изменить)</label>
+                        <input class="field__input" type="text" value="<?= val($user,'login') ?>" readonly>
                     </div>
+                    <?php endif; ?>
 
-                    <div class="field">
-                        <label for="phone">Телефон</label>
-                        <input id="phone" name="phone" type="tel"
-                               value="<?= e($values['phone']) ?>"
-                               class="<?= isset($errors['phone']) ? 'is-invalid' : '' ?>"
-                               placeholder="+7 999 000-00-00">
-                        <?php if (isset($errors['phone'])): ?><div class="err"><?= e($errors['phone']) ?></div><?php endif; ?>
-                    </div>
+                    <div class="form-grid">
 
-                    <div class="field">
-                        <label for="email">E-mail</label>
-                        <input id="email" name="email" type="email"
-                               value="<?= e($values['email']) ?>"
-                               class="<?= isset($errors['email']) ? 'is-invalid' : '' ?>"
-                               placeholder="developer@example.com">
-                        <?php if (isset($errors['email'])): ?><div class="err"><?= e($errors['email']) ?></div><?php endif; ?>
-                    </div>
-
-                    <div class="field">
-                        <label for="birth_date">Дата рождения</label>
-                        <input id="birth_date" name="birth_date" type="date"
-                               value="<?= e($values['birth_date']) ?>"
-                               class="<?= isset($errors['birth_date']) ? 'is-invalid' : '' ?>">
-                        <?php if (isset($errors['birth_date'])): ?><div class="err"><?= e($errors['birth_date']) ?></div><?php endif; ?>
-                    </div>
-
-                    <div class="field">
-                        <label>Пол</label>
-                        <div style="display:flex;gap:16px;margin-top:4px">
-                            <?php foreach (['male' => 'Мужской', 'female' => 'Женский'] as $val => $label): ?>
-                            <label style="display:flex;align-items:center;gap:8px;font-weight:500;cursor:pointer">
-                                <input type="radio" name="gender" value="<?= $val ?>"
-                                       <?= $values['gender'] === $val ? 'checked' : '' ?>
-                                       style="accent-color:var(--primary);width:16px;height:16px">
-                                <?= $label ?>
-                            </label>
-                            <?php endforeach; ?>
+                        <div class="field full">
+                            <label class="field__label" for="full_name">ФИО <span class="req">*</span></label>
+                            <input class="field__input" id="full_name" name="full_name" type="text" maxlength="150"
+                                   value="<?= $user ? val($user,'full_name') : '' ?>"
+                                   placeholder="Петров Алексей Сергеевич">
+                            <span class="field__error" data-error-for="full_name"></span>
                         </div>
-                        <?php if (isset($errors['gender'])): ?><div class="err"><?= e($errors['gender']) ?></div><?php endif; ?>
+
+                        <div class="field">
+                            <label class="field__label" for="phone">Телефон <span class="req">*</span></label>
+                            <input class="field__input" id="phone" name="phone" type="tel"
+                                   value="<?= $user ? val($user,'phone') : '' ?>"
+                                   placeholder="+7 999 000-00-00">
+                            <span class="field__error" data-error-for="phone"></span>
+                        </div>
+
+                        <div class="field">
+                            <label class="field__label" for="email">E-mail <span class="req">*</span></label>
+                            <input class="field__input" id="email" name="email" type="email"
+                                   value="<?= $user ? val($user,'email') : '' ?>"
+                                   placeholder="developer@example.com">
+                            <span class="field__error" data-error-for="email"></span>
+                        </div>
+
+                        <div class="field">
+                            <label class="field__label" for="birth_date">Дата рождения <span class="req">*</span></label>
+                            <input class="field__input" id="birth_date" name="birth_date" type="date"
+                                   value="<?= $user ? val($user,'birth_date') : '' ?>">
+                            <span class="field__error" data-error-for="birth_date"></span>
+                        </div>
+
+                        <div class="field">
+                            <label class="field__label">Пол <span class="req">*</span></label>
+                            <div class="radio-row">
+                                <?php foreach (['male' => 'Мужской', 'female' => 'Женский'] as $v => $l): ?>
+                                <label class="radio-opt">
+                                    <input type="radio" name="gender" value="<?= $v ?>"
+                                           <?= ($user['gender'] ?? '') === $v ? 'checked' : '' ?>>
+                                    <?= $l ?>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                            <span class="field__error" data-error-for="gender"></span>
+                        </div>
+
+                        <div class="field full">
+                            <label class="field__label" for="languages">Любимые языки программирования <span class="req">*</span></label>
+                            <select class="field__input" id="languages" name="languages[]" multiple>
+                                <?php foreach (AVAILABLE_LANGUAGES as $lang): ?>
+                                <option value="<?= e($lang) ?>"
+                                    <?= in_array($lang, $user['languages'] ?? [], true) ? 'selected' : '' ?>>
+                                    <?= e($lang) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <span class="hint">Удерживайте Ctrl (Cmd на Mac) для выбора нескольких</span>
+                            <span class="field__error" data-error-for="languages"></span>
+                        </div>
+
+                        <div class="field full">
+                            <label class="field__label" for="biography">Биография <span class="req">*</span></label>
+                            <textarea class="field__input" id="biography" name="biography" rows="5"
+                                      placeholder="Расскажите об опыте, проектах, увлечениях..."><?= $user ? val($user,'biography') : '' ?></textarea>
+                            <span class="field__error" data-error-for="biography"></span>
+                        </div>
+
+                        <?php if (!$isAuth): ?>
+                        <div class="field full">
+                            <label class="check-label">
+                                <input type="checkbox" name="contract_accepted" value="1">
+                                Я ознакомился(-лась) с условиями контракта и согласен(-на) с его положениями
+                            </label>
+                            <span class="field__error" data-error-for="contract_accepted"></span>
+                        </div>
+                        <?php endif; ?>
+
                     </div>
 
-                    <div class="field full">
-                        <label for="languages">Любимые языки программирования</label>
-                        <select id="languages" name="languages[]" multiple
-                                class="<?= isset($errors['languages']) ? 'is-invalid' : '' ?>">
-                            <?php foreach (AVAILABLE_LANGUAGES as $lang): ?>
-                            <option value="<?= e($lang) ?>" <?= in_array($lang, $values['languages'], true) ? 'selected' : '' ?>>
-                                <?= e($lang) ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <span class="hint">Удерживайте Ctrl (или Cmd на Mac) для выбора нескольких</span>
-                        <?php if (isset($errors['languages'])): ?><div class="err"><?= e($errors['languages']) ?></div><?php endif; ?>
+                    <div class="form-foot">
+                        <button class="btn btn--primary" type="submit" id="submitBtn">
+                            <?= $isAuth ? 'Обновить данные' : 'Отправить заявку' ?>
+                        </button>
+                        <?php if (!$isAuth): ?>
+                        <p class="form-note">Нажимая «Отправить», вы соглашаетесь на обработку данных.</p>
+                        <?php endif; ?>
                     </div>
 
-                    <div class="field full">
-                        <label for="biography">Биография</label>
-                        <textarea id="biography" name="biography" rows="5"
-                                  class="<?= isset($errors['biography']) ? 'is-invalid' : '' ?>"
-                                  placeholder="Расскажите об опыте, проектах, увлечениях..."><?= e($values['biography']) ?></textarea>
-                        <?php if (isset($errors['biography'])): ?><div class="err"><?= e($errors['biography']) ?></div><?php endif; ?>
-                    </div>
+                </form>
+            </div>
+        </div>
 
-                    <div class="field full">
-                        <label class="check-wrap <?= isset($errors['contract_accepted']) ? 'is-invalid' : '' ?>">
-                            <input type="checkbox" name="contract_accepted" value="1"
-                                   <?= $values['contract_accepted'] ? 'checked' : '' ?>>
-                            Я ознакомился(-лась) с условиями контракта и согласен(-на) с его положениями
-                        </label>
-                        <?php if (isset($errors['contract_accepted'])): ?><div class="err"><?= e($errors['contract_accepted']) ?></div><?php endif; ?>
-                    </div>
+        <!-- КАРТОЧКА ВХОДА -->
+        <div>
+            <div class="infoCard" id="authCard">
+                <?php if ($isAuth && $user): ?>
+                    <div class="infoCard__title">Личный кабинет</div>
+                    <div class="infoCard__text">Вы вошли как</div>
+                    <div class="login-name">@<?= val($user,'login') ?></div>
+                    <div class="login-sub">Зарегистрирован: <?= e(substr($user['created_at'] ?? '',0,10)) ?></div>
+                    <form id="logoutForm">
+                        <button class="btn btn--ghost btn--full" type="submit">Выйти</button>
+                    </form>
+                <?php else: ?>
+                    <div class="infoCard__title">Уже есть аккаунт?</div>
+                    <p class="infoCard__text">Войдите, чтобы загрузить и изменить ранее отправленные данные.</p>
+                    <div id="authAlert" class="alert alert--err hidden"></div>
+                    <form id="authForm" novalidate>
+                        <div class="field">
+                            <label class="field__label" for="authLogin">Логин</label>
+                            <input class="field__input" id="authLogin" type="text" name="login" autocomplete="username">
+                        </div>
+                        <div class="field" style="margin-top:12px">
+                            <label class="field__label" for="authPass">Пароль</label>
+                            <input class="field__input" id="authPass" type="password" name="password" autocomplete="current-password">
+                        </div>
+                        <button class="btn btn--ghost btn--full" type="submit" style="margin-top:16px" id="loginBtn">Войти</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+        </div>
 
-                </div>
-
-                <div class="submit-wrap">
-                    <button class="submit-btn" type="submit" id="submitBtn">Отправить анкету</button>
-                </div>
-            </form>
-
-        <?php endif; ?>
-
-        <p class="nav-foot">Уже зарегистрированы? <a href="login.php">Войти</a></p>
     </div>
 </div>
 
+<footer>
+    <div class="footer__inner">
+        <span>© 2026 Audi</span>
+        <a href="index.html">← На главную</a>
+    </div>
+</footer>
+
 <script>
 (function () {
-    const form = document.getElementById('regForm');
-    if (!form) return;
+    const isAuth = <?= $isAuth ? 'true' : 'false' ?>;
 
-    const msgBox    = document.getElementById('js-message');
-    const successBox = document.getElementById('js-success');
-    const submitBtn = document.getElementById('submitBtn');
+    function qs(sel) { return document.querySelector(sel); }
+    function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 
-    form.addEventListener('submit', async function (e) {
+    function showAlert(text, isError) {
+        const box = qs('#alertBox');
+        box.className = 'alert ' + (isError ? 'alert--err' : 'alert--ok');
+        box.innerHTML = text;
+        box.classList.remove('hidden');
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function clearErrors() {
+        qsa('.field__error').forEach(el => el.textContent = '');
+        qsa('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    }
+
+    function showFieldErrors(errors) {
+        for (const [field, msg] of Object.entries(errors)) {
+            const errEl = qs(`[data-error-for="${field}"]`);
+            if (errEl) errEl.textContent = msg;
+            const input = qs(`[name="${field}"], [name="${field}[]"]`);
+            if (input) input.classList.add('is-invalid');
+        }
+        const first = qs('.is-invalid');
+        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    // ── Основная форма ─────────────────────────────────────
+    qs('#mainForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        clearErrors();
 
-        const fd = new FormData(form);
         const languages = [];
-        document.querySelectorAll('#languages option:checked').forEach(o => languages.push(o.value));
+        qsa('#languages option:checked').forEach(o => languages.push(o.value));
 
         const payload = {
-            full_name:          fd.get('full_name'),
-            phone:              fd.get('phone'),
-            email:              fd.get('email'),
-            birth_date:         fd.get('birth_date'),
-            gender:             fd.get('gender'),
-            languages:          languages,
-            biography:          fd.get('biography'),
-            contract_accepted:  fd.has('contract_accepted'),
+            full_name:        (qs('[name=full_name]')?.value || '').trim(),
+            phone:            (qs('[name=phone]')?.value || '').trim(),
+            email:            (qs('[name=email]')?.value || '').trim(),
+            birth_date:       (qs('[name=birth_date]')?.value || '').trim(),
+            gender:           qs('[name=gender]:checked')?.value || '',
+            languages,
+            biography:        (qs('[name=biography]')?.value || '').trim(),
+            contract_accepted: isAuth || !!(qs('[name=contract_accepted]')?.checked),
         };
 
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Отправка...';
-        msgBox.style.display = 'none';
+        const btn = qs('#submitBtn');
+        btn.disabled = true;
+        btn.textContent = isAuth ? 'Сохранение...' : 'Отправка...';
 
         try {
             const res  = await fetch('api.php', {
-                method: 'POST',
+                method:  isAuth ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body:   JSON.stringify(payload),
+                body:    JSON.stringify(payload),
             });
             const data = await res.json();
 
             if (data.success) {
-                form.style.display = 'none';
-                successBox.style.display = 'block';
-                successBox.innerHTML = `
-                    <h2>✓ Регистрация прошла успешно!</h2>
-                    <p style="color:#888;font-size:13px;margin-bottom:8px">Сохраните данные для входа:</p>
-                    <div class="cred"><span>Логин</span><strong>${escHtml(data.login)}</strong></div>
-                    <div class="cred"><span>Пароль</span><strong>${escHtml(data.password)}</strong></div>
-                    <a class="btn" href="${escHtml(data.profile_url)}">Перейти в профиль →</a>
-                `;
+                if (!isAuth) {
+                    const box = qs('#credsBox');
+                    box.innerHTML = `
+                        <h3>✓ Заявка принята! Сохраните данные для входа:</h3>
+                        <div class="cred-row"><span>Логин</span><strong>${escHtml(data.login)}</strong></div>
+                        <div class="cred-row"><span>Пароль</span><strong>${escHtml(data.password)}</strong></div>
+                        <p style="margin-top:12px;font-size:13px;color:var(--muted)">
+                            Используйте их для входа в правой карточке, чтобы редактировать анкету.
+                        </p>
+                    `;
+                    box.classList.remove('hidden');
+                    qs('#mainForm').reset();
+                    qs('#alertBox').classList.add('hidden');
+                } else {
+                    showAlert('✓ Данные успешно обновлены.', false);
+                }
             } else {
-                showErrors(data.errors || {});
-                if (data.error) showMsg(data.error, true);
+                if (data.errors) showFieldErrors(data.errors);
+                if (data.error)  showAlert(data.error, true);
             }
-        } catch (err) {
-            showMsg('Ошибка сети. Попробуйте ещё раз.', true);
+        } catch {
+            showAlert('Ошибка сети. Попробуйте ещё раз.', true);
         } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Отправить анкету';
+            btn.disabled = false;
+            btn.textContent = isAuth ? 'Обновить данные' : 'Отправить заявку';
         }
     });
 
-    function showMsg(text, isError) {
-        msgBox.className = 'alert ' + (isError ? 'alert--error' : 'alert--success');
-        msgBox.textContent = text;
-        msgBox.style.display = 'block';
-        msgBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    // ── Форма входа ────────────────────────────────────────
+    qs('#authForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const authAlert = qs('#authAlert');
+        if (authAlert) authAlert.classList.add('hidden');
 
-    function showErrors(errors) {
-        // Clear old
-        document.querySelectorAll('.err[data-js]').forEach(el => el.remove());
-        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        const fd = new FormData();
+        fd.append('action',   'login');
+        fd.append('login',    qs('#authLogin')?.value || '');
+        fd.append('password', qs('#authPass')?.value || '');
 
-        for (const [field, msg] of Object.entries(errors)) {
-            const input = document.querySelector(`[name="${field}"], [name="${field}[]"]`);
-            if (input) {
-                input.classList.add('is-invalid');
-                const div = document.createElement('div');
-                div.className = 'err';
-                div.dataset.js = '1';
-                div.textContent = msg;
-                input.closest('.field')?.appendChild(div);
+        const btn = qs('#loginBtn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Вход...'; }
+
+        try {
+            const res  = await fetch('auth.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.success) {
+                window.location.reload();
+            } else {
+                if (authAlert) {
+                    authAlert.textContent = data.error || 'Ошибка входа.';
+                    authAlert.classList.remove('hidden');
+                }
             }
+        } catch {
+            if (authAlert) { authAlert.textContent = 'Ошибка сети.'; authAlert.classList.remove('hidden'); }
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Войти'; }
         }
-        if (Object.keys(errors).length) {
-            document.querySelector('.is-invalid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }
+    });
 
-    function escHtml(str) {
-        return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
+    // ── Выход ──────────────────────────────────────────────
+    qs('#logoutForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData();
+        fd.append('action', 'logout');
+        await fetch('auth.php', { method: 'POST', body: fd });
+        window.location.reload();
+    });
+
 })();
 </script>
 </body>
